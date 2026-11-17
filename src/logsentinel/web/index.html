@@ -1,0 +1,104 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>LogSentinel</title>
+<style>
+:root{--bg:#f6f7f9;--panel:#fff;--fg:#0f172a;--muted:#64748b;--line:#e2e8f0;--accent:#2563eb;
+--crit:#dc2626;--high:#ea580c;--med:#ca8a04;--ok:#16a34a;--chip:#eef2ff;--code:#f1f5f9}
+@media (prefers-color-scheme:dark){:root{--bg:#0b1020;--panel:#111827;--fg:#e5e7eb;--muted:#94a3b8;
+--line:#1f2937;--accent:#60a5fa;--crit:#f87171;--high:#fb923c;--med:#facc15;--ok:#4ade80;--chip:#1e293b;--code:#0f172a}}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--fg);font:14px/1.5 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif}
+main{max-width:1200px;margin:0 auto;padding:20px 16px 40px}
+header{display:flex;flex-wrap:wrap;gap:12px;align-items:center;justify-content:space-between}
+h1{margin:0;font-size:20px}h1 span{color:var(--muted);font-weight:400;font-size:14px}
+select{padding:6px 8px;border-radius:8px;border:1px solid var(--line);background:var(--panel);color:var(--fg);font:inherit;max-width:100%}
+.tiles{display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:10px;margin:16px 0}
+.tile{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:10px 12px}
+.tile b{display:block;font-size:22px;font-variant-numeric:tabular-nums}.tile span{color:var(--muted);font-size:12px}
+.chips{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:10px}
+.chips button{border:1px solid var(--line);background:var(--panel);color:var(--fg);border-radius:999px;padding:4px 12px;cursor:pointer;font:inherit}
+.chips button.on{background:var(--accent);border-color:var(--accent);color:#fff}
+.grid{display:grid;grid-template-columns:minmax(0,1.1fr) minmax(0,1fr);gap:14px}
+@media (max-width:860px){.grid{grid-template-columns:1fr}}
+.panel{background:var(--panel);border:1px solid var(--line);border-radius:10px;overflow:hidden}
+.scroll{overflow:auto;max-height:620px}
+table{border-collapse:collapse;width:100%;font-variant-numeric:tabular-nums}
+th,td{padding:7px 10px;border-bottom:1px solid var(--line);text-align:left;white-space:nowrap}
+th{position:sticky;top:0;background:var(--panel);color:var(--muted);font-weight:600;font-size:12px}
+tr.row{cursor:pointer}tr.row:hover,tr.sel{background:var(--chip)}
+.sev{display:inline-block;padding:1px 8px;border-radius:999px;font-size:12px;font-weight:600;color:#fff}
+.critical{background:var(--crit)}.high{background:var(--high)}.medium{background:var(--med);color:#111}
+.tp{color:var(--ok);font-weight:600}.fp{color:var(--crit);font-weight:600}.muted{color:var(--muted)}
+.detail{padding:12px 14px}.detail h3{margin:0 0 6px;font-size:15px;overflow-wrap:anywhere}
+.why li{margin:3px 0}.why code{background:var(--code);padding:1px 4px;border-radius:4px;font-size:12px}
+pre{background:var(--code);padding:10px;border-radius:8px;font-size:12px;overflow:auto;max-height:380px;margin:8px 0 0}
+.trunc{max-width:240px;overflow:hidden;text-overflow:ellipsis}
+</style>
+</head>
+<body>
+<main>
+  <header>
+    <h1>LogSentinel <span>· log anomaly alerts</span></h1>
+    <select id="run" aria-label="Detection run"></select>
+  </header>
+  <div class="tiles" id="tiles"></div>
+  <div class="chips" id="chips"></div>
+  <div class="grid">
+    <div class="panel scroll"><table><thead><tr><th>Severity</th><th>Session (block)</th><th>Score</th>
+      <th>Lines</th><th>Truth</th><th>Main signal</th></tr></thead><tbody id="rows"></tbody></table></div>
+    <div class="panel"><div class="detail" id="detail"><p class="muted">Select an alert to see why it fired and its log lines.</p></div></div>
+  </div>
+</main>
+<script>
+const $ = (id) => document.getElementById(id);
+const esc = (s) => String(s ?? "").replace(/[&<>"']/g, (c) => ({"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;","'":"&#39;"}[c]));
+let state = {run: null, severity: null, alerts: []};
+
+function tile(v, label) { return `<div class="tile"><b>${v}</b><span>${label}</span></div>`; }
+const pct = (x) => (x == null ? "—" : (100 * x).toFixed(1) + "%");
+
+async function loadRuns() {
+  const runs = await (await fetch("/api/runs")).json();
+  if (!Array.isArray(runs) || !runs.length) { $("tiles").innerHTML = "<p class='muted'>No runs yet: run <code>logsentinel detect</code>.</p>"; return; }
+  $("run").innerHTML = runs.map(r => `<option value="${r.id}">#${r.id} · ${esc(r.source)} · ${esc(r.model)} · ${esc(r.created)}</option>`).join("");
+  $("run").onchange = () => { state.run = +$("run").value; render(runs.find(r => r.id === state.run)); };
+  state.run = runs[0].id; render(runs[0]);
+}
+
+function render(run) {
+  const m = run.metrics;
+  $("tiles").innerHTML = tile(run.n_lines.toLocaleString(), "log lines") + tile(run.n_sessions.toLocaleString(), "sessions") +
+    tile(run.n_alerts.toLocaleString(), "alerts") + tile((run.n_lines / run.seconds).toLocaleString(undefined,{maximumFractionDigits:0}), "lines / s") +
+    (m ? tile(pct(m.precision), "precision") + tile(pct(m.recall), "recall") + tile(m.f1.toFixed(3), "F1") : "");
+  $("chips").innerHTML = ["all","critical","high","medium"].map(s => `<button data-s="${s}" class="${(state.severity||"all")===s?"on":""}">${s}</button>`).join("");
+  $("chips").querySelectorAll("button").forEach(b => b.onclick = () => { state.severity = b.dataset.s === "all" ? null : b.dataset.s; render(run); });
+  loadAlerts();
+}
+
+async function loadAlerts() {
+  const q = new URLSearchParams({run: state.run}); if (state.severity) q.set("severity", state.severity);
+  state.alerts = await (await fetch(`/api/alerts?${q}`)).json();
+  $("rows").innerHTML = state.alerts.map(a => `<tr class="row" data-b="${esc(a.block)}">
+    <td><span class="sev ${a.severity}">${a.severity}</span></td><td>${esc(a.block)}</td><td>${a.score.toFixed(3)}</td>
+    <td>${a.n_lines}</td>
+    <td>${a.label == null ? '<span class="muted">—</span>' : a.label ? '<span class="tp">anomaly</span>' : '<span class="fp">normal (FP)</span>'}</td>
+    <td class="trunc muted">${a.top[0] ? esc(a.top[0].kind + ": " + a.top[0].template) : ""}</td></tr>`).join("") || `<tr><td colspan="6" class="muted">No alerts.</td></tr>`;
+  $("rows").querySelectorAll("tr.row").forEach(tr => tr.onclick = () => show(tr.dataset.b, tr));
+}
+
+async function show(block, tr) {
+  document.querySelectorAll("tr.sel").forEach(t => t.classList.remove("sel")); tr.classList.add("sel");
+  const a = await (await fetch(`/api/alerts/${encodeURIComponent(block)}?run=${state.run}`)).json();
+  $("detail").innerHTML = `<h3>${esc(a.block)} <span class="sev ${a.severity}">${a.severity}</span></h3>
+    <div class="muted">score ${a.score.toFixed(4)} · ${a.n_lines} lines · first seen ${esc(a.first_ts)}</div>
+    <p><b>Why it fired</b></p><ul class="why">${a.top.map(t => `<li><b>${esc(t.kind)}</b>: <code>${esc(t.template)}</code><br>
+      <span class="muted">seen ${t.count}× in this session · typical ${t.typical}× · contribution ${t.weight}</span></li>`).join("")}</ul>
+    <b>Log lines</b><pre>${esc(a.lines.join("\n"))}</pre>`;
+}
+loadRuns();
+</script>
+</body>
+</html>
