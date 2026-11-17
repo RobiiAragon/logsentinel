@@ -1,0 +1,220 @@
+{
+ "sim_threshold": 0.5,
+ "templates": [
+  {
+   "id": 1,
+   "template": "dfs.DataNode$DataXceiver Receiving block <BLK> src: <IP> dest: <IP>",
+   "count": 1723232
+  },
+  {
+   "id": 2,
+   "template": "dfs.FSNamesystem BLOCK* NameSystem.addStoredBlock: blockMap updated: <IP> is added to <BLK> size <NUM>",
+   "count": 1719741
+  },
+  {
+   "id": 3,
+   "template": "dfs.DataNode$PacketResponder PacketResponder <NUM> for block <BLK> <*>",
+   "count": 1706728
+  },
+  {
+   "id": 4,
+   "template": "dfs.DataNode$PacketResponder Received block <BLK> of size <NUM> from <IP>",
+   "count": 1706514
+  },
+  {
+   "id": 5,
+   "template": "dfs.FSNamesystem BLOCK* NameSystem.delete: <BLK> is added to invalidSet of <IP>",
+   "count": 1396174
+  },
+  {
+   "id": 6,
+   "template": "dfs.FSDataset Deleting block <BLK> file <*>",
+   "count": 1402047
+  },
+  {
+   "id": 7,
+   "template": "dfs.FSNamesystem BLOCK* NameSystem.allocateBlock: <*> <BLK>",
+   "count": 575061
+  },
+  {
+   "id": 8,
+   "template": "dfs.DataNode$DataXceiver <IP> Served block <BLK> to <IP>",
+   "count": 428726
+  },
+  {
+   "id": 9,
+   "template": "dfs.DataNode$DataXceiver <IP>:Got exception while serving <BLK> to <IP>:",
+   "count": 356207
+  },
+  {
+   "id": 10,
+   "template": "dfs.DataBlockScanner Verification succeeded for <BLK>",
+   "count": 120036
+  },
+  {
+   "id": 11,
+   "template": "dfs.DataNode$DataXceiver Received block <BLK> src: <IP> dest: <IP> of size <NUM>",
+   "count": 7097
+  },
+  {
+   "id": 12,
+   "template": "dfs.DataNode$DataTransfer <IP>:Transmitted block <BLK> to <IP>",
+   "count": 6937
+  },
+  {
+   "id": 13,
+   "template": "dfs.FSNamesystem BLOCK* ask <IP> to replicate <BLK> to datanode(s) <IP>",
+   "count": 6837
+  },
+  {
+   "id": 14,
+   "template": "dfs.DataNode <IP> Starting thread to transfer block <BLK> to <IP>",
+   "count": 6837
+  },
+  {
+   "id": 15,
+   "template": "dfs.FSDataset Unexpected error trying to delete block <BLK>. BlockInfo not found in volumeMap.",
+   "count": 5545
+  },
+  {
+   "id": 16,
+   "template": "dfs.DataNode$DataXceiver writeBlock <BLK> received exception java.io.IOException: Could not read from stream",
+   "count": 3226
+  },
+  {
+   "id": 17,
+   "template": "dfs.DataNode$BlockReceiver Receiving empty packet for block <BLK>",
+   "count": 1464
+  },
+  {
+   "id": 18,
+   "template": "dfs.FSNamesystem BLOCK* NameSystem.addStoredBlock: addStoredBlock request received for <BLK> on <IP> size <NUM> But it does not belong to any file.",
+   "count": 1288
+  },
+  {
+   "id": 19,
+   "template": "dfs.FSNamesystem BLOCK* NameSystem.addStoredBlock: Redundant addStoredBlock request received for <BLK> on <IP> size <NUM>",
+   "count": 975
+  },
+  {
+   "id": 20,
+   "template": "dfs.DataNode <IP> Starting thread to transfer block <BLK> to <IP>, <IP>",
+   "count": 165
+  },
+  {
+   "id": 21,
+   "template": "dfs.FSNamesystem BLOCK* ask <IP> to replicate <BLK> to datanode(s) <IP> <IP>",
+   "count": 165
+  },
+  {
+   "id": 22,
+   "template": "dfs.DataNode$BlockReceiver Exception in receiveBlock for block <BLK> java.io.IOException: Connection reset by peer",
+   "count": 75
+  },
+  {
+   "id": 23,
+   "template": "dfs.DataNode$DataXceiver writeBlock <BLK> received exception <*> <*> <*> <*> <*>",
+   "count": 76
+  },
+  {
+   "id": 24,
+   "template": "dfs.DataNode$BlockReceiver Changing block file offset of block <BLK> from <NUM> to <NUM> meta file offset to <NUM>",
+   "count": 65
+  },
+  {
+   "id": 25,
+   "template": "dfs.DataNode$BlockReceiver Exception in receiveBlock for block <BLK> <*>",
+   "count": 56
+  },
+  {
+   "id": 26,
+   "template": "dfs.DataNode$DataXceiver writeBlock <BLK> received exception <*>",
+   "count": 67
+  },
+  {
+   "id": 27,
+   "template": "dfs.PendingReplicationBlocks$PendingReplicationMonitor PendingReplicationMonitor timed out block <BLK>",
+   "count": 47
+  },
+  {
+   "id": 28,
+   "template": "dfs.DataNode$BlockReceiver <IP>:Exception writing block <BLK> to mirror <IP>",
+   "count": 34
+  },
+  {
+   "id": 29,
+   "template": "dfs.DataNode$PacketResponder PacketResponder <BLK> <NUM> Exception java.io.InterruptedIOException: Interruped while waiting for IO on channel java.nio.channels.SocketChannel[connected local=<IP> remote=<IP>]. <NUM> millis timeout left.",
+   "count": 33
+  },
+  {
+   "id": 30,
+   "template": "dfs.DataNode$PacketResponder PacketResponder <BLK> <NUM> Exception java.net.SocketTimeoutException: <NUM> millis timeout while waiting for channel to be ready for read. ch : java.nio.channels.SocketChannel[connected local=<IP> remote=<IP>]",
+   "count": 22
+  },
+  {
+   "id": 31,
+   "template": "dfs.DataNode$PacketResponder PacketResponder <BLK> <NUM> Exception <*>",
+   "count": 29
+  },
+  {
+   "id": 32,
+   "template": "dfs.DataNode$BlockReceiver Exception in receiveBlock for block <BLK> java.io.InterruptedIOException: Interruped while waiting for IO on channel java.nio.channels.SocketChannel[connected local=<IP> remote=<IP>]. <NUM> millis timeout left.",
+   "count": 16
+  },
+  {
+   "id": 33,
+   "template": "dfs.DataNode$PacketResponder PacketResponder <BLK> <NUM> Exception java.io.IOException: Connection reset by peer",
+   "count": 11
+  },
+  {
+   "id": 34,
+   "template": "dfs.DataNode$DataXceiver writeBlock <BLK> received exception java.io.IOException: <*> <*>",
+   "count": 16
+  },
+  {
+   "id": 35,
+   "template": "dfs.DataNode$DataXceiver writeBlock <BLK> received exception java.net.SocketTimeoutException: <NUM> millis timeout while waiting for channel to be ready for <*> ch : java.nio.channels.SocketChannel[connected local=<IP> remote=<IP>]",
+   "count": 15
+  },
+  {
+   "id": 36,
+   "template": "dfs.DataNode$DataXceiver writeBlock <BLK> received exception java.io.IOException: Block <BLK> is valid, and cannot be written to.",
+   "count": 9
+  },
+  {
+   "id": 37,
+   "template": "dfs.DataNode$DataTransfer <IP>:Failed to transfer <BLK> to <IP> got java.io.IOException: Connection reset by peer",
+   "count": 9
+  },
+  {
+   "id": 38,
+   "template": "dfs.DataNode$DataXceiver writeBlock <BLK> received exception java.io.InterruptedIOException: Interruped while waiting for IO on channel java.nio.channels.SocketChannel[connected local=<IP> remote=<IP>]. <NUM> millis timeout left.",
+   "count": 7
+  },
+  {
+   "id": 39,
+   "template": "dfs.DataNode$PacketResponder PacketResponder <BLK> <NUM> Exception java.io.IOException: Broken pipe",
+   "count": 6
+  },
+  {
+   "id": 40,
+   "template": "dfs.DataNode$BlockReceiver Exception in receiveBlock for block <BLK> java.net.SocketTimeoutException: <NUM> millis timeout while waiting for channel to be ready for write. ch : java.nio.channels.SocketChannel[connected local=<IP> remote=<IP>]",
+   "count": 5
+  },
+  {
+   "id": 41,
+   "template": "dfs.FSDataset Reopen Block <BLK>",
+   "count": 5
+  },
+  {
+   "id": 42,
+   "template": "dfs.DataNode$PacketResponder PacketResponder <BLK> <NUM> Exception java.io.InterruptedIOException: Interruped while waiting for IO on channel java.nio.channels.SocketChannel[closed]. <NUM> millis timeout left.",
+   "count": 5
+  },
+  {
+   "id": 43,
+   "template": "dfs.FSNamesystem BLOCK* Removing block <BLK> from neededReplications as it does not belong to any file.",
+   "count": 4
+  }
+ ]
+}
