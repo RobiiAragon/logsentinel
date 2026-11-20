@@ -11,7 +11,7 @@ jobs:
       fail-fast: false
       matrix:
         os: [ubuntu-latest, macos-latest]
-        python: ["3.11", "3.12"]
+        python: ["3.11", "3.12", "3.13"]
     runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v4
@@ -32,3 +32,9 @@ jobs:
           logsentinel providers
           logsentinel detect data/sample/hdfs_test_sample.log.gz --model autoencoder-int8 \
             --labels data/sample/hdfs_test_sample_labels.csv --db ci.db
+          logsentinel export --db ci.db -o ci-alerts.ndjson
+          python -c "import json; d=[json.loads(l) for l in open('ci-alerts.ndjson')]; assert d and d[0]['event']['kind'] == 'alert'; print(len(d), 'ECS alerts')"
+      - name: Model card is up to date
+        run: |
+          logsentinel card
+          git diff --exit-code MODEL_CARD.md
