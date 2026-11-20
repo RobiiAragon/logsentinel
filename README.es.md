@@ -80,12 +80,18 @@ logsentinel train        # Isolation Forest + autoencoder -> ONNX FP32 / INT8 / 
 logsentinel evaluate --out results/mi-equipo.json
 ```
 
+Otros comandos: `detect --threshold X` cambia el umbral elegido en validación (súbelo para
+recibir menos alertas), `export` saca las alertas de una corrida como **NDJSON con campos
+ECS** (Elastic Common Schema) o CSV para un SIEM, y `card` regenera
+[`MODEL_CARD.md`](MODEL_CARD.md) a partir de `models/` y un archivo de resultados.
+
 ## Resultados medidos en mi Mac
 
 **Hardware:** MacBook Pro (Mac17,6), Apple **M5 Max**, 48 GB RAM, macOS 27.2.
 **Software:** Python 3.12.16, onnxruntime 1.32.0, scikit-learn 1.9.1, skl2onnx 1.20.0.
 **Datos:** Loghub HDFS_v1: 11,175,629 líneas, 575,061 bloques (2.93% anómalos). El **test
-cronológico tiene 115,013 bloques, 1,679 anómalos (1.46%)**.
+cronológico tiene 115,013 bloques, 1,679 anómalos (1.46%)**. La [model card](MODEL_CARD.md) generada
+tiene las mismas métricas en formato de Hugging Face.
 
 ### Calidad de detección (test, umbral elegido en validación)
 
@@ -93,7 +99,7 @@ cronológico tiene 115,013 bloques, 1,679 anómalos (1.46%)**.
 |---|---|---:|---:|---:|---:|---:|---:|
 | Isolation Forest | ninguna | 0.364 | 0.913 | 0.521 | 0.765 | 1533 / 2673 / 146 | 423 KB |
 | Autoencoder entrenado con todo el train | ninguna | 0.385 | 1.000 | 0.556 | 0.477 | 1679 / 2679 / 0 | (no exportado) |
-| **Autoencoder FP32** entrenado con bloques normales | "este periodo estuvo sano" | **0.955** | **0.997** | **0.976** | **0.998** | 1674 / 78 / 5 | 14.6 KB |
+| **Autoencoder FP32** entrenado con bloques normales | etiquetas "normal" del periodo de entrenamiento (one-class) | **0.955** | **0.997** | **0.976** | **0.998** | 1674 / 78 / 5 | 14.6 KB |
 | Autoencoder **INT8** (W8A8 QDQ) | ″ | 0.924 | 0.997 | 0.959 | 0.996 | 1674 / 137 / 5 | 10.6 KB |
 | Autoencoder **W8A16** (QDQ) | ″ | 0.955 | 0.997 | 0.976 | 0.997 | 1674 / 79 / 5 | 11.0 KB |
 | Regresión logística (referencia supervisada) | todos los bloques etiquetados | 0.955 | 0.992 | 0.973 | 0.990 | 1665 / 79 / 14 | n/a |
@@ -112,7 +118,7 @@ CPU y CoreML dan detecciones idénticas en todos los modelos; solo cambia la vel
 | Entrenamiento (autoencoder / Isolation Forest) | 0.9 s / 0.5 s |
 
 El score prácticamente no cuesta; **el cuello de botella es el parsing**. CoreML es más lento
-que la CPU para modelos tan chicos (0.085 vs 0.007 ms en el autoencoder; el operador
+que la CPU para modelos tan chicos (0.084 vs 0.007 ms en el autoencoder; el operador
 TreeEnsemble no está soportado y cae a CPU), porque el overhead de despacho domina cuando el
 modelo tiene 4 capas.
 
@@ -120,8 +126,11 @@ modelo tiene 4 capas.
 
 1. **Saber cómo se ve lo "normal" importa más que el algoritmo.** El mismo autoencoder pasa de
    F1 0.556 (entrenado con todo, incluyendo 3% de anomalías) a **0.976** cuando se entrena solo
-   con bloques de un periodo sano. Eso iguala a una regresión logística totalmente supervisada
-   (F1 0.973) sin necesitar etiquetas de anomalías.
+   con bloques del periodo de entrenamiento etiquetados como normales. Eso iguala a una
+   regresión logística totalmente supervisada (F1 0.973). Para ser exactos: las etiquetas de
+   entrenamiento se usaron para *quitar* los bloques anómalos, así que es un modelo one-class,
+   no uno sin etiquetas. En producción el equivalente es un periodo base que un operador
+   revisó como sano; para detectar no se necesitan etiquetas.
 2. **Isolation Forest batalla con vectores de conteos:** 91% de recall pero 2,673 falsos
    positivos contra 1,533 detecciones correctas (1.7 falsas alarmas por anomalía real),
    demasiado ruido para la cola de un SOC.
@@ -163,7 +172,7 @@ Los resultados quedan en `results/android-<modelo>.db/.json`. El panel no se ins
 
 ```bash
 pip install -e ".[dev]"
-ruff check . && ruff format --check . && pytest -q   # 15 pruebas, ~3 s
+ruff check . && ruff format --check . && pytest -q   # 17 pruebas, ~3 s
 scripts/mac_check.sh                                  # pipeline completo + eval + panel
 QUICK=1 scripts/mac_check.sh                          # solo los modelos del repo
 ```
@@ -175,7 +184,8 @@ QUICK=1 scripts/mac_check.sh                          # solo los modelos del rep
 - [ ] Modelo de secuencias (GRU chico / estilo DeepLog) exportado a ONNX
 - [ ] Modo streaming: seguir un log en vivo y mandar alertas por WebSocket
 - [ ] Logs de SSH (Loghub `SSH`) como demo de seguridad: fuerza bruta y credential stuffing
-- [ ] Salida Sigma/ECS para reenviar alertas a un SIEM
+- [x] Exportar alertas como NDJSON ECS / CSV para un SIEM (`logsentinel export`)
+- [ ] Reglas Sigma para las firmas de alerta más comunes
 
 ## Datos y licencia
 

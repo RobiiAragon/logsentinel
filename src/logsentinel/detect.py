@@ -67,11 +67,14 @@ def detect(
     provider: str = "cpu",
     labels_path: Path | None = None,
     max_lines: int = 200,
+    threshold: float | None = None,
 ) -> dict[str, Any]:
+    """Score ``log_path``; ``threshold`` overrides the model card's validation threshold."""
     cards = load_cards(models_dir)
     if model not in cards:
         raise SystemExit(f"unknown model {model!r}; available: {', '.join(cards)}")
     card = cards[model]
+    thr = card.threshold if threshold is None else float(threshold)
     miner = TemplateMiner.load(models_dir / "templates.json")
     names = miner.feature_names()
     extra = load_extra(models_dir)
@@ -84,7 +87,7 @@ def detect(
     raw = sessions.scan(datasets.iter_text_lines(log_path))
     counts = sessions.count_matrix(raw, sessions.key_to_template(raw, miner), miner.n_features)
     scores, feat_err = Scorer(models_dir / card.file, provider)(counts)
-    hit = np.flatnonzero(scores >= card.threshold)
+    hit = np.flatnonzero(scores >= thr)
 
     wanted = {raw.block_ids[i] for i in hit}
     lines: dict[str, list[str]] = {b: [] for b in wanted}
@@ -104,7 +107,7 @@ def detect(
             {
                 "block": blk,
                 "score": float(scores[i]),
-                "severity": severity(float(scores[i]), card.threshold),
+                "severity": severity(float(scores[i]), thr),
                 "first_ts": ts.isoformat(sep=" ") if ts else "",
                 "n_lines": int(n_per_block[i]),
                 "label": labels.get(blk),
@@ -120,12 +123,12 @@ def detect(
     run_metrics = None
     if labels:
         y = np.array([labels.get(b, 0) for b in raw.block_ids])
-        run_metrics = metrics.report(y, scores, card.threshold)
+        run_metrics = metrics.report(y, scores, thr)
     run = {
         "created": datetime.now(UTC).strftime("%Y-%m-%d %H:%M UTC"),
         "source": log_path.name,
         "model": model,
-        "threshold": card.threshold,
+        "threshold": thr,
         "n_lines": raw.n_lines,
         "n_sessions": len(raw.block_ids),
         "seconds": seconds,

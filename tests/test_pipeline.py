@@ -88,3 +88,43 @@ def test_committed_models_on_committed_sample(tmp_path) -> None:
     )
     assert run["n_sessions"] == 1500
     assert run["metrics"]["f1"] > 0.8
+
+
+def test_threshold_override_export_and_card(tmp_path, synthetic, capsys) -> None:
+    from logsentinel import export
+    from logsentinel.cli import main
+
+    log, labels_csv, _ = synthetic
+    _train_tiny(tmp_path / "m", log)
+    db = tmp_path / "alerts.db"
+    base = detect(log, tmp_path / "m", "autoencoder", db, labels_path=labels_csv)
+    huge = detect(log, tmp_path / "m", "autoencoder", db, threshold=1e9)
+    assert huge["n_alerts"] == 0 and huge["threshold"] == 1e9 and base["n_alerts"] > 0
+
+    out = tmp_path / "alerts.ndjson"
+    run_arg = str(base["id"])
+    assert main(["export", "--db", str(db), "--run", run_arg, "-o", str(out)]) == 0
+    docs = [json.loads(line) for line in out.read_text().splitlines()]
+    assert len(docs) == base["n_alerts"]
+    first = docs[0]
+    assert first["event"]["kind"] == "alert" and first["event"]["created"].endswith("Z")
+    assert 25 <= first["event"]["risk_score"] <= 100
+    assert (
+        first["logsentinel"]["block"].startswith("blk_") and first["logsentinel"]["top_templates"]
+    )
+
+    assert main(["export", "--db", str(db), "--format", "csv"]) == 0  # latest run: no alerts
+    assert capsys.readouterr().out.strip() == ",".join(export.CSV_FIELDS)
+    assert main(["export", "--db", str(tmp_path / "missing.db")]) == 2
+    assert export.risk_score(2.0, 1.0) == 50.0 and export.risk_score(9.0, 1.0) == 100.0
+
+
+def test_model_card_matches_committed_results() -> None:
+    from logsentinel.card import render
+
+    text = render(REPO / "models", REPO / "results/mac-m5max.json")
+    results = json.loads((REPO / "results/mac-m5max.json").read_text())["results"]
+    ae = next(r for r in results if r["model"] == "autoencoder" and r["provider"] == "cpu")
+    assert text.startswith("---\nlicense: mit") and "model-index:" in text
+    assert f"{{type: f1, value: {ae['f1']:.4f}}}" in text
+    assert f"{ae['tp']} / {ae['fp']} / {ae['fn']}" in text

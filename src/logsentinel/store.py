@@ -93,6 +93,18 @@ def alerts(
     return [{**dict(r), "top": json.loads(r["top"])} for r in con.execute(sql, args)]
 
 
+def alert(con: sqlite3.Connection, run_id: int, block: str) -> dict[str, Any] | None:
+    row = con.execute(
+        "SELECT * FROM alerts WHERE run_id = ? AND block = ?", (run_id, block)
+    ).fetchone()
+    return {**dict(row), "top": json.loads(row["top"])} if row else None
+
+
+def run(con: sqlite3.Connection, run_id: int) -> dict[str, Any] | None:
+    row = con.execute("SELECT * FROM runs WHERE id = ?", (run_id,)).fetchone()
+    return {**dict(row), "metrics": json.loads(row["metrics"] or "null")} if row else None
+
+
 def alert_lines(con: sqlite3.Connection, run_id: int, block: str) -> list[str]:
     rows = con.execute(
         "SELECT text FROM lines WHERE run_id = ? AND block = ? ORDER BY idx", (run_id, block)

@@ -81,8 +81,10 @@ logsentinel evaluate --out results/my-machine.json   # test split, every model x
 | `prepare` | Download, parse, mine templates, build session features and the demo sample |
 | `train` | Train the models, choose thresholds on validation, export and quantize to ONNX |
 | `evaluate` | Test-split metrics, throughput and batch-1 latency per model and EP |
-| `detect LOG` | Score any HDFS-format `.log`/`.log.gz` and store alerts and evidence in SQLite |
+| `detect LOG` | Score any HDFS-format `.log`/`.log.gz` and store alerts and evidence in SQLite (`--threshold` overrides the validation threshold) |
 | `serve` | Alert dashboard (`--db alerts.db`) |
+| `export` | A run's alerts as **ECS NDJSON** (Elastic Common Schema field names) or CSV, for a SIEM (`--format ecs\|csv`, `--severity`, `-o`) |
+| `card` | Regenerate [`MODEL_CARD.md`](MODEL_CARD.md) from `models/` and a results file |
 | `providers` | Available / skipped ONNX Runtime execution providers |
 
 ## Results: measured on my Mac
@@ -92,7 +94,8 @@ logsentinel evaluate --out results/my-machine.json   # test split, every model x
 **Data:** Loghub HDFS_v1, 11,175,629 lines and 575,061 blocks (2.93% anomalous). The
 chronological **test split has 115,013 blocks, 1,679 of them anomalous (1.46%)**. Raw data:
 [`results/mac-m5max.json`](results/mac-m5max.json),
-[`models/train_report.json`](models/train_report.json).
+[`models/train_report.json`](models/train_report.json), and the generated
+[model card](MODEL_CARD.md) with a Hugging Face-style metrics block.
 
 ### Detection quality (test split, threshold chosen on validation)
 
@@ -100,7 +103,7 @@ chronological **test split has 115,013 blocks, 1,679 of them anomalous (1.46%)**
 |---|---|---:|---:|---:|---:|---:|---:|
 | Isolation Forest | none | 0.364 | 0.913 | 0.521 | 0.765 | 1533 / 2673 / 146 | 423 KB |
 | Autoencoder, trained on all train blocks | none | 0.385 | 1.000 | 0.556 | 0.477 | 1679 / 2679 / 0 | (not exported) |
-| **Autoencoder FP32**, trained on normal train blocks | "this period was healthy" | **0.955** | **0.997** | **0.976** | **0.998** | 1674 / 78 / 5 | 14.6 KB |
+| **Autoencoder FP32**, trained on normal train blocks | normal labels of the train period (one-class) | **0.955** | **0.997** | **0.976** | **0.998** | 1674 / 78 / 5 | 14.6 KB |
 | Autoencoder **INT8** (W8A8 QDQ) | ″ | 0.924 | 0.997 | 0.959 | 0.996 | 1674 / 137 / 5 | 10.6 KB |
 | Autoencoder **W8A16** (QDQ) | ″ | 0.955 | 0.997 | 0.976 | 0.997 | 1674 / 79 / 5 | 11.0 KB |
 | Logistic regression (supervised reference) | every block labeled | 0.955 | 0.992 | 0.973 | 0.990 | 1665 / 79 / 14 | n/a |
@@ -119,15 +122,17 @@ CPU and CoreML give identical detections for every model; only the speed differs
 | Training (autoencoder / Isolation Forest) | 0.9 s / 0.5 s |
 
 Scoring is effectively free; **parsing is the bottleneck**. CoreML is slower than CPU for
-these tiny models (0.085 ms vs 0.007 ms for the autoencoder at batch 1; the TreeEnsemble op
+these tiny models (0.084 ms vs 0.007 ms for the autoencoder at batch 1; the TreeEnsemble op
 isn't supported, so it falls back): dispatch overhead dominates when the model has 4 layers.
 
 ### What I learned
 
 1. **Knowing what "normal" looks like matters more than the algorithm.** The same autoencoder
    goes from F1 0.556 (trained on everything, 3% anomalies included) to **0.976** when trained
-   only on blocks from a healthy period. That matches a fully supervised logistic regression
-   (F1 0.973) while needing no anomaly labels.
+   only on train-period blocks labelled normal. That matches a fully supervised logistic
+   regression (F1 0.973). To be precise: the training labels were used to *remove* the
+   anomalous blocks, so this is a one-class model, not a label-free one. In production the
+   equivalent is a baseline period an operator has vetted as healthy; scoring needs no labels.
 2. **Isolation Forest struggles on count vectors.** It reaches 91% recall, but with 2,673 false
    positives for 1,533 true detections (1.7 false alarms per real anomaly), which is too noisy
    for a SOC queue.
@@ -169,7 +174,7 @@ Termux (`pydantic-core` has no Android wheel); copy the `.db` to a laptop and ru
 
 ```bash
 pip install -e ".[dev]"
-ruff check . && ruff format --check . && pytest -q   # 15 tests, ~3 s
+ruff check . && ruff format --check . && pytest -q   # 17 tests, ~3 s
 scripts/mac_check.sh                                  # full pipeline + eval + dashboard smoke test
 QUICK=1 scripts/mac_check.sh                          # committed models only
 ```
@@ -177,7 +182,8 @@ QUICK=1 scripts/mac_check.sh                          # committed models only
 The tests use synthetic HDFS-format logs (normal write pipelines vs. pipelines that stop and
 throw), check that the hand-built ONNX graph matches the NumPy model (max |Δ| 1.1e-5 on real
 data), that the NumPy metrics match scikit-learn, and that the committed models still detect
-anomalies in the committed sample. CI runs them on ubuntu + macOS with Python 3.11 and 3.12.
+anomalies in the committed sample. CI runs them on ubuntu + macOS with Python 3.11, 3.12 and 3.13, smoke-tests `detect` and
+`export`, and fails if `MODEL_CARD.md` no longer matches what `logsentinel card` generates.
 
 ## Roadmap
 
@@ -186,7 +192,8 @@ anomalies in the committed sample. CI runs them on ubuntu + macOS with Python 3.
 - [ ] Sequence model (small GRU / DeepLog-style next-event prediction) exported to ONNX
 - [ ] Streaming mode: tail a log, score sessions when they close, push alerts over WebSocket
 - [ ] SSH auth logs (Loghub `SSH`) as a security-focused demo: brute force and credential stuffing
-- [ ] Sigma/ECS output so alerts can be forwarded to a SIEM
+- [x] ECS NDJSON / CSV export of alerts for a SIEM (`logsentinel export`)
+- [ ] Sigma rules for the most common alert signatures
 
 ## Data and license
 

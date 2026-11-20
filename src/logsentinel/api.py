@@ -25,12 +25,12 @@ def create_app(db_path: Path) -> FastAPI:
     page = files("logsentinel").joinpath("web/index.html").read_text(encoding="utf-8")
 
     def _run_id(run: int | None) -> int:
-        all_runs = store.runs(con)
-        if not all_runs:
-            raise HTTPException(404, "no detection runs yet; run `logsentinel detect` first")
         if run is None:
-            return int(all_runs[0]["id"])
-        if not any(r["id"] == run for r in all_runs):
+            row = con.execute("SELECT MAX(id) FROM runs").fetchone()
+            if row[0] is None:
+                raise HTTPException(404, "no detection runs yet; run `logsentinel detect` first")
+            return int(row[0])
+        if store.run(con, run) is None:
             raise HTTPException(404, f"run {run} not found")
         return run
 
@@ -53,9 +53,9 @@ def create_app(db_path: Path) -> FastAPI:
     @app.get("/api/alerts/{block}")
     def alert(block: str, run: int | None = None) -> dict[str, Any]:
         rid = _run_id(run)
-        match = [a for a in store.alerts(con, rid, limit=100000) if a["block"] == block]
-        if not match:
+        found = store.alert(con, rid, block)  # indexed lookup, not a scan of every alert
+        if found is None:
             raise HTTPException(404, "alert not found")
-        return {**match[0], "lines": store.alert_lines(con, rid, block)}
+        return {**found, "lines": store.alert_lines(con, rid, block)}
 
     return app
